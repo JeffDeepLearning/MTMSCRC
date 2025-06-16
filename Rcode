@@ -1,0 +1,232 @@
+##Codes for running lasso-cox regression for pathomics signature
+library(glmnet)
+data_train_ps <- read.table("training_features_ps.csv", sep = ",", head = T,row.names=1)
+data_train_ps<-as.matrix(data_train_ps)
+x<- data_train_ps [,3:350] 
+y<- data_train_ps [,1:2] 
+cv.fit=cv.glmnet(x,y,family="cox",nfolds=10)
+plot(cv.fit,xlab="log(λ)")
+coefficients<-coef(fit,s=cv.fit$lambda.1se)
+Active.Index<-which(coefficients!=0)     
+Active.coefficients<-coefficients[Active.Index]  
+Active.Index
+Active.coefficients
+
+##Codes for running lasso-cox regression for collagen signature
+library(glmnet)
+data_train_cs <- read.table("training_features_cs.csv", sep = ",", head = T,row.names=1)
+data_train_cs<-as.matrix(data_train_cs)
+x<- data_train_cs [,3:144] 
+y<- data_train_cs [,1:2] 
+cv.fit=cv.glmnet(x,y,family="cox",nfolds=10)
+plot(cv.fit,xlab="log(λ)")
+coefficients<-coef(fit,s=cv.fit$lambda.1se)
+Active.Index<-which(coefficients!=0)     
+Active.coefficients<-coefficients[Active.Index]  
+Active.Index
+Active.coefficients
+
+
+##Codes for generating survival curves
+training_data <- read.table("training_data.csv", sep = ",", head = T,row.names=1)
+internal_validation_data <- read.table("internal_validation_data.csv", sep = ",", head = T,row.names=1)
+external_validation_data <- read.table("external_validation_data.csv", sep = ",", head = T,row.names=1)
+library(survminer)
+library(survival)
+DFS_training_MTMS <- survfit(Surv(DFStimes,DFSstatus)~MTMS,data=training_data)
+ggsurvplot(DFS_training_MTMS, training_data, risk.table =TRUE,pval = T,pval.method = TRUE,conf.int = F,add.all = F, palette=c("#E1C855","#51B1B7","#E07B54"), break.x.by = 12, xlim=c(0,60) , xlab = "Time (months)", ylab = "Disease-free survival", font.tickslab=c(22),font.x=c(26),font.y=c(26))
+
+OS_training_MTMS <- survfit(Surv(OStimes, OSstatus)~MTMS,data=training_data)
+ggsurvplot(OS_training_MTMS, training_data, risk.table =TRUE,pval = T,pval.method = TRUE,conf.int = F,add.all = F, palette=c("#E1C855","#51B1B7","#E07B54"), break.x.by = 12, xlim=c(0,60) , xlab = "Time (months)", ylab = "Overall survival", font.tickslab=c(22),font.x=c(26),font.y=c(26))
+
+DFS_internal_validation_MTMS <- survfit(Surv(DFStimes,DFSstatus)~MTMS,data= internal_validation_data)
+ggsurvplot(DFS_internal_validation_MTMS, internal_validation_data, risk.table =TRUE,pval = T,pval.method = TRUE,conf.int = F,add.all = F, palette=c("#E1C855","#51B1B7","#E07B54"), break.x.by = 12, xlim=c(0,60) , xlab = "Time (months)", ylab = "Disease-free survival", font.tickslab=c(22),font.x=c(26),font.y=c(26))
+OS_internal_validation_MTMS <- survfit(Surv(OStimes,OSstatus)~MTMS,data= internal_validation_data)
+ggsurvplot(OS_internal_validation_MTMS, internal_validation_data, risk.table =TRUE,pval = T,pval.method = TRUE,conf.int = F,add.all = F, palette=c("#E1C855","#51B1B7","#E07B54"), break.x.by = 12, xlim=c(0,60) , xlab = "Time (months)", ylab = "Overall survival", font.tickslab=c(22),font.x=c(26),font.y=c(26))
+
+DFS_external_validation_MTMS <- survfit(Surv(DFStimes,DFSstatus)~MTMS,data= external_validation_data)
+ggsurvplot(DFS_external_validation_MTMS, external_validation_data, risk.table =TRUE,pval = T,pval.method = TRUE,conf.int = F,add.all = F, palette=c("#E1C855","#51B1B7","#E07B54"), break.x.by = 12, xlim=c(0,60) , xlab = "Time (months)", ylab = "Disease-free survival", font.tickslab=c(22),font.x=c(26),font.y=c(26))
+OS_external_validation_MTMS <- survfit(Surv(OStimes,OSstatus)~MTMS,data= external_validation_data)
+ggsurvplot(OS_external_validation_MTMS, external_validation_data, risk.table =TRUE,pval = T,pval.method = TRUE,conf.int = F,add.all = F, palette=c("#E1C855","#51B1B7","#E07B54"), break.x.by = 12, xlim=c(0,60) , xlab = "Time (months)", ylab = "Overall survival", font.tickslab=c(22),font.x=c(26),font.y=c(26))
+
+##Codes for development nomogram
+training_data <- read.table("training_data.csv", sep = ",", head = T,row.names=1)
+internal_validation_data <- read.table("internal_validation_data.csv", sep = ",", head = T,row.names=1)
+external_validation_data <- read.table("external_validation_data.csv", sep = ",", head = T,row.names=1)
+
+library(rms)
+library(survival)
+nom_training <- datadist(training_data)
+options(datadist="nom_training")
+
+#Codes for constructing and plotting nomogram
+model_DFS <- cph(Surv(DFSstimes,DFSstatus) ~ Tstage+Nstage+Mstage+MTMS, data = training_data, x = T, y = T, surv = T, time.inc = 60)
+surv_DFS <- Survival(model_DFS)
+
+nom_DFS <- nomogram(model_DFS, fun = list(function(x) surv_DFS(24, x),
+                                    function(x) surv_DFS(36, x),
+                                    function(x) surv_DFS(60, x)),
+                   fun.at = c(seq(.1,.9,by = .1),.95),
+                   funlabel = c("2-year DFS probability","3-year DFS probability ","5-year DFS probability"),lp = F)
+plot(nom_DFS)
+
+model_OS <- cph(Surv(OSstimes,OSstatus) ~ Tstage+Nstage+Mstage+MTMS, data = training_data, x = T, y = T, surv = T, time.inc = 60)
+surv_OS <- Survival(model_OS)
+
+nom_OS <- nomogram(model_OS, fun = list(function(x) surv_OS(24, x),
+                                    function(x) surv_OS(36, x),
+                                    function(x) surv_OS(60, x)),
+                   fun.at = c(seq(.1,.9,by = .1),.95),
+                   funlabel = c("2-year OS probability","3-year OS probability ","5-year OS probability"),lp = F)
+plot(nom_OS)
+
+#Codes for calculating C-index in training cohort
+library(survival)
+library(rms)
+rcorrcens(Surv(DFStimes,DFSstatus) ~ predict(model_DFS), data = training_data)
+rcorrcens(Surv(OStimes,OSstatus) ~ predict(model_OS), data = training_data)
+
+##Codes for calculating C-index in internal validation cohort
+model_DFS_intern_val <- cph(Surv(DFStimes,DFSstatus)~predict(model_DFS, newdata = internal_validation_data), x = T, y = T, surv = T,time.inc = 60, data = internal_validation_data)
+rcorrcens(Surv(DFStimes,DFSstatus) ~ predict(model_DFS, newdata = internal_validation_data), data = internal_validation_data)
+
+model_OS_intern_val <- cph(Surv(OStimes,OSstatus)~predict(model_OS, newdata = internal_validation_data), x = T, y = T, surv = T,time.inc = 60, data = internal_validation_data)
+rcorrcens(Surv(OStimes,OSstatus) ~ predict(model_OS, newdata = internal_validation_data), data = internal_validation_data)
+
+#Codes for calculating C-index in external validation cohort
+model_DFS_extern_val <- cph(Surv(DFStimes,DFSstatus)~predict(model_DFS, newdata = external_validation_data), x = T, y = T, surv = T,time.inc = 60, data = external_validation_data)
+rcorrcens(Surv(DFStimes,DFSstatus) ~ predict(model_DFS, newdata = external_validation_data), data = external_validation_data)
+
+model_OS_extern_val <- cph(Surv(OStimes,OSstatus)~predict(model_OS, newdata = external_validation_data), x = T, y = T, surv = T,time.inc = 60, data = external_validation_data)
+rcorrcens(Surv(OStimes,OSstatus) ~ predict(model_OS, newdata = external_validation_data), data = external_validation_data)
+
+##Codes for calibration curve of the nomogram
+model_DFS_24 <- cph(Surv(DFStimes,DFSstatus) ~ Tstage+Nstage+Mstage+MTMS, data = training_data, x = T, y = T, surv = T, time.inc = 24)
+model_DFS_36 <- cph(Surv(DFStimes,DFSstatus) ~ Tstage+Nstage+Mstage+MTMS, data = training_data, x = T, y = T, surv = T, time.inc = 36)
+model_DFS_60 <- cph(Surv(DFStimes,DFSstatus) ~ Tstage+Nstage+Mstage+MTMS, data = training_data, x = T, y = T, surv = T, time.inc = 60)
+cal_DFS_training_24 <-calibrate(model_DFS_24, cmethod = "KM", method = "boot", u = 24, m = 52, B = 1000)
+cal_DFS_training_36 <-calibrate(model_DFS_36, cmethod = "KM", method = "boot", u = 36, m = 52, B = 1000)
+cal_DFS_training_60 <-calibrate(model_DFS_60, cmethod = "KM", method = "boot", u = 60, m = 52, B = 1000)
+plot(cal_DFS_training_24, col="#0e72cc", errbar.col="#0e72cc",par.corrected=list(col="#0e72cc") ,xlim=c(0,1),ylim=c(0,1))
+plot(cal_DFS_training_36, col="#f05326", errbar.col="#f05326",par.corrected=list(col="#f05326") ,xlim=c(0,1),ylim=c(0,1))
+plot(cal_DFS_training_60, col="#fa4343", errbar.col="#fa4343",par.corrected=list(col="#fa4343") ,xlim=c(0,1),ylim=c(0,1))
+
+
+model_OS_24 <- cph(Surv(OStimes,OSstatus) ~ Tstage+Nstage+Mstage+MTMS, data = training_data, x = T, y = T, surv = T, time.inc = 24)
+model_OS_36 <- cph(Surv(OStimes,OSstatus) ~ Tstage+Nstage+Mstage+MTMS, data = training_data, x = T, y = T, surv = T, time.inc = 36)
+model_OS_60 <- cph(Surv(OStimes,OSstatus) ~ Tstage+Nstage+Mstage+MTMS, data = training_data, x = T, y = T, surv = T, time.inc = 60)
+cal_OS_training_24 <-calibrate(model_OS_24, cmethod = "KM", method = "boot", u = 24, m = 52, B = 1000)
+cal_OS_training_36 <-calibrate(model_OS_36, cmethod = "KM", method = "boot", u = 36, m = 52, B = 1000)
+cal_OS_training_60 <-calibrate(model_OS_60, cmethod = "KM", method = "boot", u = 60, m = 52, B = 1000)
+plot(cal_OS_training_24, col="#0e72cc", errbar.col="#0e72cc",par.corrected=list(col="#0e72cc") ,xlim=c(0,1),ylim=c(0,1))
+plot(cal_OS_training_36, col="#f05326", errbar.col="#f05326",par.corrected=list(col="#f05326") ,xlim=c(0,1),ylim=c(0,1))
+plot(cal_OS_training_60, col="#fa4343", errbar.col="#fa4343",par.corrected=list(col="#fa4343") ,xlim=c(0,1),ylim=c(0,1))
+
+
+##Codes for decision curve of the nomogram
+library(dcurves)
+library(foreign)
+library(survival)
+library(dplyr)
+model_1_DFS<-coxph(Surv(DFStimes,DFSstatus)~ MTMS+Tstage+Nstage+Mstage,data= training_data)
+model_2_DFS <- coxph(Surv(DFStimes,DFSstatus)~ Tstage+Nstage+Mstage+Differentiation_status,data= training_data)
+model_3_DFS <- coxph(Surv(DFStimes,DFSstatus)~ TNMstage,data= training_data)
+training_data $pr_failuref1 = c(1- (summary(survfit(model_1_DFS, newdata= training_data), times=60)$surv))
+training_data $pr_failuref2 = c(1- (summary(survfit(model_2_DFS, newdata= training_data), times=60)$surv))
+training_data $pr_failuref3 = c(1- (summary(survfit(model_3_DFS, newdata= training_data), times=60)$surv))
+dca(Surv(DFStimes,DFSstatus) ~ pr_failuref1+pr_failuref2+ pr_failuref3, 
+                      data = training_data,
+                      time = 60,
+                      thresholds = 1:100 / 100) %>%
+  plot(smooth = T)
+
+model_1_OS<-coxph(Surv(OStimes,OSstatus)~ MTMS+Tstage+Nstage+Mstage,data= training_data)
+model_2_OS <- coxph(Surv(OStimes, OSstatus)~ Tstage+Nstage+Mstage+Differentiation_status,data= training_data)
+model_3_OS <- coxph(Surv(OStimes, OSstatus)~ TNMstage,data= training_data)
+training_data $pr_failuref1 = c(1- (summary(survfit(model_1_OS, newdata= training_data), times=60)$surv))
+training_data $pr_failuref2 = c(1- (summary(survfit(model_2_OS, newdata= training_data), times=60)$surv))
+training_data $pr_failuref3 = c(1- (summary(survfit(model_3_OS, newdata= training_data), times=60)$surv))
+dca(Surv(OStimes,OSstatus) ~ pr_failuref1+pr_failuref2+ pr_failuref3, 
+                      data = training_data,
+                      time = 60,
+                      thresholds = 1:100 / 100) %>%
+  plot(smooth = T)
+
+#Codes for time-independent ROC curve and AUROC comparison in training cohort
+library(survivalROC)
+library(timeROC)
+library(survival)
+
+y1<-Surv(training_data$DFStimes, training_data$DFSstatus)
+model_1_DFS<-coxph(formula=y1~MTMS+Tstage+Nstage+Mstage, data= training_data)
+p1=predict(model_1_DFS,type="lp")
+model_2_DFS <-coxph(formula=y1~ Tstage+Nstage+Mstage+ Differentiation_status,data= training_data)
+p2=predict(model_2_DFS,type="lp")
+model_3_DFS <-coxph(formula=y1~ TNMstage,data= training_data)
+p3=predict(model_3_DFS,type="lp")
+roc_model_1_DFS=survivalROC(Stime= training_data $DFStimes,status= training_data $DFSstatus,marker=p1,predict.time=60,method="KM")
+roc_model_2_DFS =survivalROC(Stime= training_data $DFStimes,status= training_data $DFSstatus,marker=p2,predict.time=60,method="KM")
+roc_model_3_DFS =survivalROC(Stime= training_data $DFStimes,status= training_data $DFSstatus,marker=p3,predict.time=60,method="KM")
+plot(roc_model_1_DFS $FP, roc_model_1_DFS $TP,type="l",xlab="False positive rate",ylab="True positive rate",col="#E53528",main="Time dependent ROC",lwd=2)
+par(new=T)
+plot(roc_model_2_DFS $FP, roc_model_2_DFS $TP,type="l",xlab="False positive rate",ylab="True positive rate",col="#193E8F",main="Time dependent ROC",lwd=2)
+par(new=T)
+plot(roc_model_3_DFS $FP, roc_model_3_DFS $TP,type="l",xlab="False positive rate",ylab="True positive rate",col="#F09739",main="Time dependent ROC",lwd=2)
+timeroc_model_1_DFS<-timeROC(T= training_data $DFStimes,delta= training_data$ DFSstatus,marker= p1,
+           cause=1,weighting="marginal",
+           times=c(60),
+           iid=TRUE,ROC=TRUE) 
+timeroc_model_1_DFS
+confint(timeroc_model_1_DFS)$CI_AUC
+timeroc_model_2_DFS <-timeROC(T= training_data $DFStimes,delta= training_data$ DFSstatus,marker= p2,
+           cause=1,weighting="marginal",
+           times=c(60),
+           iid=TRUE,ROC=TRUE) 
+timeroc_model_2_DFS 
+confint(timeroc_model_2_DFS)$CI_AUC
+
+timeroc_model_3_DFS <-timeROC(T= training_data$ DFStimes,delta= training_data$ DFSstatus,marker= p3,
+           cause=1,weighting="marginal",
+           times=c(60),
+           iid=TRUE,ROC=TRUE) 
+timeroc_model_3_DFS 
+confint(timeroc_model_3_DFS)$CI_AUC
+compare(timeroc_model_1_DFS, timeroc_model_2_DFS)
+compare(timeroc_model_1_DFS, timeroc_model_3_DFS)
+
+y1<-Surv(training_data$OStimes, training_data$OSstatus)
+model_1_OS<-coxph(formula=y1~MTMS+Tstage+Nstage+Mstage, data= training_data)
+p1=predict(model_1_OS,type="lp")
+model_2_OS <-coxph(formula=y1~ Tstage+Nstage+Mstage+ Differentiation_status,data= training_data)
+p2=predict(model_2_OS,type="lp")
+model_3_OS <-coxph(formula=y1~ TNMstage,data= training_data)
+p3=predict(model_3_OS,type="lp")
+roc_model_1_OS=survivalROC(Stime= training_data $OStimes,status= training_data $OSstatus,marker=p1,predict.time=60,method="KM")
+roc_model_2_OS =survivalROC(Stime= training_data $OStimes,status= training_data $OSstatus,marker=p2,predict.time=60,method="KM")
+roc_model_3_OS =survivalROC(Stime= training_data $OStimes,status= training_data $OSstatus,marker=p3,predict.time=60,method="KM")
+plot(roc_model_1_OS $FP, roc_model_1_OS $TP,type="l",xlab="False positive rate",ylab="True positive rate",col="#E53528",main="Time dependent ROC",lwd=2)
+par(new=T)
+plot(roc_model_2_OS $FP, roc_model_2_OS $TP,type="l",xlab="False positive rate",ylab="True positive rate",col="#193E8F",main="Time dependent ROC",lwd=2)
+par(new=T)
+plot(roc_model_3_OS $FP, roc_model_3_OS $TP,type="l",xlab="False positive rate",ylab="True positive rate",col="#F09739",main="Time dependent ROC",lwd=2)
+timeroc_model_1_OS<-timeROC(T= training_data $OStimes,delta= training_data$ OSstatus,marker= p1,
+           cause=1,weighting="marginal",
+           times=c(60),
+           iid=TRUE,ROC=TRUE) 
+timeroc_model_1_OS
+confint(timeroc_model_1_OS)$CI_AUC
+timeroc_model_2_OS <-timeROC(T= training_data $OStimes,delta= training_data$ OSstatus,marker= p2,
+           cause=1,weighting="marginal",
+           times=c(60),
+           iid=TRUE,ROC=TRUE) 
+timeroc_model_2_OS 
+confint(timeroc_model_2_OS)$CI_AUC
+
+timeroc_model_3_OS <-timeROC(T= training_data$ OStimes,delta= training_data$ OSstatus,marker= p3,
+           cause=1,weighting="marginal",
+           times=c(60),
+           iid=TRUE,ROC=TRUE) 
+timeroc_model_3_OS 
+confint(timeroc_model_3_OS)$CI_AUC
+compare(timeroc_model_1_OS, timeroc_model_2_OS)
+compare(timeroc_model_1_OS, timeroc_model_3_OS)
